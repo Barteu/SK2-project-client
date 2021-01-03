@@ -19,11 +19,22 @@ namespace projektSK2
         delegate void setThreadedTextBoxCallback(String text);
         delegate void setThreadedStatusLabelCallback(String text);
         delegate void setThreadedButtonCallback(bool status);
+        private bool logged;
 
-        public Form1()
+        Socket socketFd;
+
+        private FormLogIn loginForm;
+
+        public Form1(Socket socketFd)
         {
+            
             InitializeComponent();
             this.obj = this;
+            
+            this.socketFd = socketFd;
+            logged = false;
+            loginForm = new FormLogIn(socketFd);
+            openChildFormLogin(loginForm);
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -36,45 +47,42 @@ namespace projektSK2
 
         }
 
-        private void setThreadedTextBox(String text)
+        private void label1_Click_1(object sender, EventArgs e)
         {
-            if (this.textBoxReturnMsg.InvokeRequired)
-            {
-                setThreadedTextBoxCallback textBoxCallback = new setThreadedTextBoxCallback(setThreadedTextBox);
-                this.obj.Invoke(textBoxCallback, text);
-            }
-            else
-            {
-                //text = text.Substring(0, text.Length - 2);
-                this.textBoxReturnMsg.Text = text;
-            }
+
         }
 
-        private void setThreadedStatusLabel(String text)
+        private Form activeForm = null;
+        private void openChildFormLogin(FormLogIn childForm)
         {
-            if (this.statusStrip1.InvokeRequired)
-            {
-                setThreadedStatusLabelCallback statusLabelCallback = new setThreadedStatusLabelCallback(setThreadedStatusLabel);
-                this.obj.Invoke(statusLabelCallback, text);
-            }
-            else
-            {
-                this.toolStripStatusLabel1.Text = text;
-            }
+            if (activeForm != null)
+                activeForm.Close();
+            activeForm = childForm;
+            childForm.TopLevel = false;
+            childForm.FormBorderStyle = FormBorderStyle.None;
+            childForm.Dock = DockStyle.Fill;
+            childForm.LoginStateChanged += loginForm_LoginStateChanged;
+            panelChildForm.Controls.Add(childForm);
+            panelChildForm.Tag = childForm;
+            childForm.BringToFront();
+            childForm.Show();
         }
 
-        private void setThreadedButton(bool status)
+        private void openChildForm(Form childForm)
         {
-            if (this.logInButton.InvokeRequired)
-            {
-                setThreadedButtonCallback buttonCallback = new setThreadedButtonCallback(setThreadedButton);
-                this.obj.Invoke(buttonCallback, status);
-            }
-            else
-            {
-                this.logInButton.Enabled = status;
-            }
+            if (activeForm != null)
+                activeForm.Close();
+            activeForm = childForm;
+            childForm.TopLevel = false;
+            childForm.FormBorderStyle = FormBorderStyle.None;
+            childForm.Dock = DockStyle.Fill;
+            panelChildForm.Controls.Add(childForm);
+            panelChildForm.Tag = childForm;
+            childForm.BringToFront();
+            childForm.Show();
+
         }
+
 
         private void SendCallback(IAsyncResult ar)
         {
@@ -90,151 +98,79 @@ namespace projektSK2
             catch (Exception exc)
             {
                 MessageBox.Show("Exception:\t\n" + exc.Message.ToString());
-                setThreadedStatusLabel("Check \"Server Info\" and try again!");
-                setThreadedButton(true);
+
             }
         }
 
-        private void ReceiveCallback(IAsyncResult ar)
+        private void buttonLogOut_Click(object sender, EventArgs e)
         {
-            try
-            {
-                /* retrieve the SocketStateObject */
-                SocketStateObject state = (SocketStateObject)ar.AsyncState;
-                Socket socketFd = state.m_SocketFd;
+            SocketStateObject state = new SocketStateObject();
+            state.m_SocketFd = this.socketFd;
 
-                /* read data */
-                int size = socketFd.EndReceive(ar);
-
-                if (size > 0)
-                {
-                    state.m_StringBuilder.Append(Encoding.ASCII.GetString(state.m_DataBuf, 0, size));
-
-                    /* get the rest of the data */
-                    socketFd.BeginReceive(state.m_DataBuf, 0, SocketStateObject.BUF_SIZE, 0, new AsyncCallback(ReceiveCallback), state);
-                }
-                else
-                {
-                    /* all the data has arrived */
-                    if (state.m_StringBuilder.Length > 1)
-                    {
-                        setThreadedTextBox(state.m_StringBuilder.ToString());
-                        setThreadedStatusLabel("Done.");
-                        setThreadedButton(true);
-
-                        /* shutdown and close socket */
-                        socketFd.Shutdown(SocketShutdown.Receive);
-                        socketFd.Close();
-                    }
-                }
-            }
-            catch (Exception exc)
-            {
-                MessageBox.Show("Exception:\t\n" + exc.Message.ToString());
-                setThreadedStatusLabel("Check \"Server Info\" and try again!");
-                setThreadedButton(true);
-            }
-        }
-
-        private void GetHostEntryCallback(IAsyncResult ar)
-        {
-            try
-            {
-                IPHostEntry hostEntry = null;
-                IPAddress[] addresses = null;
-                Socket socketFd = null;
-                IPEndPoint endPoint = null;
-
-                /* complete the DNS query */
-                hostEntry = Dns.EndGetHostEntry(ar);
-                addresses = hostEntry.AddressList;
-
-                /* create a socket */
-                socketFd = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
-                /* remote endpoint for the socket */
-                endPoint = new IPEndPoint(addresses[0], Int32.Parse(this.textBoxPort.Text.ToString()));
-                // powyzej powinno sie wybrac addresses[1] bo [0] to IPv6
-
-                setThreadedStatusLabel("Wait! Connecting...");
-
-                /* connect to the server */
-                socketFd.BeginConnect(endPoint, new AsyncCallback(ConnectCallback), socketFd);
-            }
-            catch (Exception exc)
-            {
-                MessageBox.Show("Exception:\t\n" + exc.Message.ToString());
-                setThreadedStatusLabel("Check \"Server Info\" and try again!");
-                setThreadedButton(true);
-            }
-        }
-
-        private void ConnectCallback(IAsyncResult ar)
-        {
-            try
-            {
-                /* retrieve the socket from the state object */
-                Socket socketFd = (Socket)ar.AsyncState;
-
-                /* complete the connection */
-                socketFd.EndConnect(ar);
-
-                /* create the SocketStateObject */
-                SocketStateObject state = new SocketStateObject();
-                state.m_SocketFd = socketFd;
-
-                setThreadedStatusLabel("Wait! Sending...");
-
-                /* begin  SENDING the data */
-                string loginPassword = textBoxLogin.Text.ToString() + ';' + textBoxPass.Text.ToString();
+            socketFd.BeginSend(Encoding.ASCII.GetBytes("o;"), 0, "o;".Length, 0, new AsyncCallback(SendCallback), state);
+            this.buttonLogOut.Visible = false;
+            this.buttonTopcics.Visible = false;
+            this.buttonSend.Visible = false;
+            this.buttonRecieve.Visible = false;
+            loginForm = new FormLogIn(socketFd);
+            openChildFormLogin(loginForm);
             
-
-                socketFd.BeginSend(Encoding.ASCII.GetBytes(loginPassword), 0, loginPassword.Length, 0, new AsyncCallback(SendCallback), state);
-                /* begin  receiving the data */
-                socketFd.BeginReceive(state.m_DataBuf, 0, SocketStateObject.BUF_SIZE, 0, new AsyncCallback(ReceiveCallback), state);
-            }
-            catch (Exception exc)
-            {
-                MessageBox.Show("Exception:\t\n" + exc.Message.ToString());
-                setThreadedStatusLabel("Check \"Server Info\" and try again!");
-                setThreadedButton(true);
-            }
         }
 
-
-        private void logInButton_Click(object sender, EventArgs e)
+        private void panelChildForm_Paint(object sender, PaintEventArgs e)
         {
-            try
+     
+        }
+
+
+        void loginForm_LoginStateChanged(bool newLoginState)
+        {
+            if(newLoginState==true)
             {
-                setThreadedButton(false);
-                setThreadedTextBox("");
-                setThreadedStatusLabel("Wait! DNS query...");
-
-                if (this.textBoxAddr.Text.Length > 0 && this.textBoxPort.Text.Length > 0 && this.textBoxLogin.Text.Length > 0 && this.textBoxPass.Text.Length>0)
-                {
-                    /* get DNS host information */
-                    Dns.BeginGetHostByName(this.textBoxAddr.Text.ToString(), new AsyncCallback(GetHostEntryCallback), null);
-                }
-                else
-                {
-                    if (this.textBoxAddr.Text.Length <= 0) MessageBox.Show("No server address!");
-                    else if (this.textBoxPort.Text.Length <= 0) MessageBox.Show("No server port number!");
-                    else if (this.textBoxLogin.Text.Length <= 0) MessageBox.Show("No login!");
-                    else if (this.textBoxPass.Text.Length <= 0) MessageBox.Show("No password!");
-
-                    setThreadedButton(true);
-                    setThreadedStatusLabel("Check \"Server Info\" and try again!");
-                }
+                this.buttonLogOut.Visible = true;
+                this.buttonTopcics.Visible = true;
+                this.buttonSend.Visible = true;
+                this.buttonRecieve.Visible = true;
             }
-            catch (Exception exc)
+            else
             {
-                MessageBox.Show("Exception:\t\n" + exc.Message.ToString());
-                setThreadedStatusLabel("Check \"Server Info\" and try again!");
-                setThreadedButton(true);
+                this.buttonLogOut.Visible = false;
+                this.buttonTopcics.Visible = false;
+                this.buttonSend.Visible = false;
+                this.buttonRecieve.Visible = false;
+
             }
         }
 
+        private void buttonExit_Click(object sender, EventArgs e)
+        {
+            SocketStateObject state = new SocketStateObject();
+            state.m_SocketFd = this.socketFd;
+            socketFd.BeginSend(Encoding.ASCII.GetBytes("?;"), 0, "?;".Length, 0, new AsyncCallback(SendCallback), state);
+            /* shutdown and close socket */
+            socketFd.Shutdown(SocketShutdown.Both);
+            socketFd.Close();
+            this.Close();
+            System.Environment.Exit(1);
+        }
+
+        private void buttonTopcics_Click(object sender, EventArgs e)
+        {
+            openChildForm(new Form2(this.socketFd));
+
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void buttonRecieve_Click(object sender, EventArgs e)
+        {
+            openChildForm(new FormRecieve(this.socketFd));
+        }
     }
+
 
     public class SocketStateObject
     {
