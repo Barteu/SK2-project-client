@@ -22,6 +22,7 @@ namespace projektSK2
         delegate void setThreadedStatusLabelCallback(String text);
         delegate void setThreadedButtonCallback(bool status);
 
+        //reakcja na zmiane statusu zalogowania
         public event LoginStateChangeHandler LoginStateChanged;
         public delegate void LoginStateChangeHandler(bool newLoginState);
 
@@ -33,9 +34,9 @@ namespace projektSK2
             InitializeComponent();
             this.obj = this;
             this.socketFd = socketFd;
-           
         }
 
+        // ustawia wiadomość o poprawności zalogowania
         private void setThreadedTextBox(String text)
         {
             if (this.textBoxReturnMsg.InvokeRequired)
@@ -49,8 +50,7 @@ namespace projektSK2
             }
         }
 
-
-
+        // uaktywnia/dezaktywuje przycisk do zalogowania
         private void setThreadedButton(bool status)
         {
             if (this.logInButton.InvokeRequired)
@@ -64,6 +64,7 @@ namespace projektSK2
             }
         }
 
+        // po wysłaniu danych logowania odbiera od serwera decyzje o zalogowaniu
         private void SendCallback(IAsyncResult ar)
         {
             try
@@ -77,7 +78,6 @@ namespace projektSK2
 
                 /* begin  receiving the data */
                 socketFd.BeginReceive(state.m_DataBuf, 0, SocketStateObject.BUF_SIZE, 0, new AsyncCallback(ReceiveCallback), state);
-
             }
             catch (Exception exc)
             {
@@ -87,6 +87,7 @@ namespace projektSK2
             }
         }
 
+        // odbiór decyzji o zalogowaniu od serwera
         private void ReceiveCallback(IAsyncResult ar)
         {
             try
@@ -94,20 +95,34 @@ namespace projektSK2
                 /* retrieve the SocketStateObject */
                 SocketStateObject state = (SocketStateObject)ar.AsyncState;
                 Socket socketFd = state.m_SocketFd;
-
+               
                 /* read data */
                 int size = socketFd.EndReceive(ar);
 
-                state.m_StringBuilder.Append(Encoding.ASCII.GetString(state.m_DataBuf, 0, size));
-
-                /* all the data has arrived */
-                if (state.m_StringBuilder.Length > 1)
+                // jeżeli coś odebrano może nastąpić próba dalszego odbioru
+                if ( size > 0)
                 {
-                    setThreadedTextBox(state.m_StringBuilder.ToString());
-               
-                    setThreadedButton(true);
-                }
+                    state.m_StringBuilder.Append(Encoding.ASCII.GetString(state.m_DataBuf, 0, size));
 
+                    // jeżeli ostatnim odebranym znakiem jest '~' to kończy odbieranie w przeciwnym przypadku odbiera reszte danych
+                    if (state.m_StringBuilder.ToString().Contains("~")) 
+                    {      
+                        setThreadedTextBox(state.m_StringBuilder.ToString().Substring(0, state.m_StringBuilder.ToString().Length - 1));
+                        setThreadedButton(true);
+                    }
+                    else
+                    {
+                        socketFd.BeginReceive(state.m_DataBuf, 0, SocketStateObject.BUF_SIZE, 0, new AsyncCallback(ReceiveCallback), state);
+                    }
+                }
+                else 
+                {
+                    if (state.m_StringBuilder.Length > 1 && state.m_StringBuilder.ToString().Contains("~"))
+                    {
+                        setThreadedTextBox(state.m_StringBuilder.ToString().Substring(0, state.m_StringBuilder.ToString().Length - 1));
+                        setThreadedButton(true);
+                    } 
+                }
             }
             catch (Exception exc)
             {
@@ -118,6 +133,9 @@ namespace projektSK2
         }
 
 
+
+
+        //wysyła dane logowania
         private void logInButton_Click(object sender, EventArgs e)
         {
             try
@@ -129,17 +147,17 @@ namespace projektSK2
                 state.m_SocketFd = this.socketFd;
 
 
-                if (this.textBoxLogin.Text.Length > 0 && this.textBoxPass.Text.Length > 0)
+                if (this.textBoxLogin.Text.Length > 2 && this.textBoxPass.Text.Length > 2)
                 {
                    
                     /* begin  SENDING the data */
-                    string loginPassword = textBoxLogin.Text.ToString() + '|' + textBoxPass.Text.ToString();
+                    string loginPassword = textBoxLogin.Text.ToString().Replace('|', ' ') + '|' + textBoxPass.Text.ToString().Replace('|', ' ')+'~';
 
                     socketFd.BeginSend(Encoding.ASCII.GetBytes(loginPassword), 0, loginPassword.Length, 0, new AsyncCallback(SendCallback), state);
 
                     Application.DoEvents();
                     
-                    if (this.textBoxReturnMsg.Text=="Poprawnie zalogowano")
+                    if (this.textBoxReturnMsg.Text.Contains("Logged in"))
                     {
                         this.LoginStateChanged(true);
                         this.Close();
@@ -148,8 +166,8 @@ namespace projektSK2
                 else
                 {
 
-                    if (this.textBoxLogin.Text.Length <= 0) MessageBox.Show("No login!");
-                    else if (this.textBoxPass.Text.Length <= 0) MessageBox.Show("No password!");
+                    if (this.textBoxLogin.Text.Length <= 2) MessageBox.Show("Login is too short");
+                    else if (this.textBoxPass.Text.Length <= 2) MessageBox.Show("Password is too short!");
 
                     setThreadedButton(true);
                  
@@ -165,7 +183,6 @@ namespace projektSK2
 
         private void textBoxLogin_TextChanged(object sender, EventArgs e)
         {
-
         }
     }
 

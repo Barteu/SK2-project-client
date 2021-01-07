@@ -16,47 +16,47 @@ namespace projektSK2
     public partial class Form1 : Form
     {
         private Form obj;
-        delegate void setThreadedTextBoxCallback(String text);
-        delegate void setThreadedStatusLabelCallback(String text);
-        delegate void setThreadedButtonCallback(bool status);
-        private bool logged;
+
+        delegate void setThreadedButtonCallback(Button button, bool state);
 
         Socket socketFd;
 
         private FormLogIn loginForm;
-
+        
+        // formularz aktualnie wyswietlany
+        private Form activeForm = null;
+        
         public Form1(Socket socketFd)
-        {
-            
+        {      
             InitializeComponent();
             this.obj = this;
-            
             this.socketFd = socketFd;
-            logged = false;
             loginForm = new FormLogIn(socketFd);
             openChildFormLogin(loginForm);
         }
 
-        private void Form1_Load(object sender, EventArgs e)
-        {
-
+        //ustawia widoczność danego przycisku
+        private void setThreadedButton(Button  button, bool state)
+        { 
+            if (button.InvokeRequired)
+            {
+                setThreadedButtonCallback buttonCallback = new setThreadedButtonCallback(setThreadedButton);
+                this.obj.Invoke(buttonCallback, new object[] { button},new object[] { state });
+            }
+            else
+            {
+                button.Visible = state;
+            }
         }
 
-        private void label1_Click(object sender, EventArgs e)
-        {
 
-        }
-
-        private void label1_Click_1(object sender, EventArgs e)
-        {
-
-        }
-
-        private Form activeForm = null;
+        // otwiera na środku formularz logowania
         private void openChildFormLogin(FormLogIn childForm)
         {
             if (activeForm != null)
+            {
                 activeForm.Close();
+            }
             activeForm = childForm;
             childForm.TopLevel = false;
             childForm.FormBorderStyle = FormBorderStyle.None;
@@ -68,10 +68,13 @@ namespace projektSK2
             childForm.Show();
         }
 
+        // otwiera w przestrzeni roboczej dany formularz
         private void openChildForm(Form childForm)
         {
             if (activeForm != null)
+            {
                 activeForm.Close();
+            }  
             activeForm = childForm;
             childForm.TopLevel = false;
             childForm.FormBorderStyle = FormBorderStyle.None;
@@ -83,7 +86,7 @@ namespace projektSK2
 
         }
 
-
+        // callback wysyłki wiadomości do servera
         private void SendCallback(IAsyncResult ar)
         {
             try
@@ -98,70 +101,81 @@ namespace projektSK2
             catch (Exception exc)
             {
                 MessageBox.Show("Exception:\t\n" + exc.Message.ToString());
+            }
+        }
+
+        // zamyka gniazda i wylacza aplikacje
+        private void SendExitCallback(IAsyncResult ar)
+        {
+            try
+            {
+                /* retrieve the SocketStateObject */
+                SocketStateObject state = (SocketStateObject)ar.AsyncState;
+                Socket socketFd = state.m_SocketFd;
+
+                // Complete sending the data to the remote device.  
+                int bytesSent = socketFd.EndSend(ar);
+
+                /* shutdown and close socket */
+                socketFd.Shutdown(SocketShutdown.Both);
+                socketFd.Close();
+                System.Environment.Exit(1);
+            }
+            catch (Exception exc)
+            {
+                MessageBox.Show("Exception:\t\n" + exc.Message.ToString());
 
             }
         }
 
+        // wysyla informacje o wylogowaniu do servera
         private void buttonLogOut_Click(object sender, EventArgs e)
         {
             SocketStateObject state = new SocketStateObject();
             state.m_SocketFd = this.socketFd;
 
-            socketFd.BeginSend(Encoding.ASCII.GetBytes("o;"), 0, "o;".Length, 0, new AsyncCallback(SendCallback), state);
-            this.buttonLogOut.Visible = false;
-            this.buttonTopcics.Visible = false;
-            this.buttonSend.Visible = false;
-            this.buttonRecieve.Visible = false;
+            setThreadedButton(this.buttonLogOut, false);
+            setThreadedButton(this.buttonTopcics, false);
+            setThreadedButton(this.buttonSend, false);
+            setThreadedButton(this.buttonReceive, false);
+
+            socketFd.BeginSend(Encoding.ASCII.GetBytes("o|~"), 0, "o|~".Length, 0, new AsyncCallback(SendCallback), state);
+
             loginForm = new FormLogIn(socketFd);
             openChildFormLogin(loginForm);
-            
         }
 
-        private void panelChildForm_Paint(object sender, PaintEventArgs e)
-        {
-     
-        }
-
-
+        // reaguje na zmiane stanu zalogowania uktywając bądź pokazując przyciski
         void loginForm_LoginStateChanged(bool newLoginState)
         {
             if(newLoginState==true)
             {
-                this.buttonLogOut.Visible = true;
-                this.buttonTopcics.Visible = true;
-                this.buttonSend.Visible = true;
-                this.buttonRecieve.Visible = true;
+                setThreadedButton(this.buttonLogOut, true);
+                setThreadedButton(this.buttonTopcics, true);
+                setThreadedButton(this.buttonSend, true);
+                setThreadedButton(this.buttonReceive, true);
             }
             else
             {
-                this.buttonLogOut.Visible = false;
-                this.buttonTopcics.Visible = false;
-                this.buttonSend.Visible = false;
-                this.buttonRecieve.Visible = false;
-
+                setThreadedButton(this.buttonLogOut, false);
+                setThreadedButton(this.buttonTopcics, false);
+                setThreadedButton(this.buttonSend, false);
+                setThreadedButton(this.buttonReceive, false);
             }
         }
 
+        // poniższe funkcje otwierają poszczególne formularze w głównej przestrzeni roboczej
         private void buttonExit_Click(object sender, EventArgs e)
         {
             SocketStateObject state = new SocketStateObject();
             state.m_SocketFd = this.socketFd;
-            socketFd.BeginSend(Encoding.ASCII.GetBytes("?;"), 0, "?;".Length, 0, new AsyncCallback(SendCallback), state);
-            /* shutdown and close socket */
-            socketFd.Shutdown(SocketShutdown.Both);
-            socketFd.Close();
-            this.Close();
-            System.Environment.Exit(1);
+            socketFd.BeginSend(Encoding.ASCII.GetBytes("?|~"), 0, "?|~".Length, 0, new AsyncCallback(SendExitCallback), state);
+        
         }
 
         private void buttonTopcics_Click(object sender, EventArgs e)
         {
-            openChildForm(new Form2(this.socketFd));
-
-        }
-
-        private void button1_Click(object sender, EventArgs e)
-        {
+            openChildForm(new FormTopics(this.socketFd));
 
         }
 
@@ -169,8 +183,29 @@ namespace projektSK2
         {
             openChildForm(new FormRecieve(this.socketFd));
         }
-    }
 
+
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
+        {
+                SocketStateObject state = new SocketStateObject();
+                state.m_SocketFd = this.socketFd;
+                socketFd.BeginSend(Encoding.ASCII.GetBytes("?|~"), 0, "?|~".Length, 0, new AsyncCallback(SendExitCallback), state);
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            openChildForm(new FormSendMsg(this.socketFd));
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+        }
+
+        private void panelChildForm_Paint(object sender, PaintEventArgs e)
+        {
+        }
+
+    }
 
     public class SocketStateObject
     {

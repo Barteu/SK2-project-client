@@ -25,6 +25,7 @@ namespace projektSK2
         delegate void setThreadedTextTopicCallback(String text);
         delegate void setThreadedTextTitleCallback(String text);
         delegate void setThreadedTextBoxTextCallback(String text);
+        delegate void setThreadedButtonNextCallback(bool state);
 
         public FormRecieve(Socket socketFd)
         {
@@ -35,11 +36,11 @@ namespace projektSK2
             SocketStateObject state = new SocketStateObject();
             state.m_SocketFd = this.socketFd;
 
-            socketFd.BeginSend(Encoding.ASCII.GetBytes("r;"), 0, "r;".Length, 0, new AsyncCallback(SendCallback), state);
-
+            // po utworzeniu tego formularza, wysyła do serwera zapytanie o wiadomości
+            socketFd.BeginSend(Encoding.ASCII.GetBytes("r|~"), 0, "r|~".Length, 0, new AsyncCallback(SendCallback), state);
         }
 
-        
+        // ustawia pole liczby wiadomości do odczytania
         private void setThreadedTextToRead(String text)
         {
             if (this.textToRead.InvokeRequired)
@@ -49,11 +50,11 @@ namespace projektSK2
             }
             else
             {
-                //text = text.Substring(0, text.Length - 2);
                 this.textToRead.Text = text;
             }
         }
 
+        // ustawia tekst w polu kolejki
         private void setThreadedTextTopic(String text)
         {
             if (this.textTopic.InvokeRequired)
@@ -63,11 +64,11 @@ namespace projektSK2
             }
             else
             {
-                //text = text.Substring(0, text.Length - 2);
                 this.textTopic.Text = text;
             }
         }
 
+        // ustawia tekst w polu tematu wiadomości
         private void setThreadedTextTitle(String text)
         {
             if (this.textTitle.InvokeRequired)
@@ -77,13 +78,12 @@ namespace projektSK2
             }
             else
             {
-                //text = text.Substring(0, text.Length - 2);
                 this.textTitle.Text = text;
             }
         }
 
 
-
+        //ustawia tekst w polu wiadomości
         private void setThreadedTextBoxText(String text)
         {
             if (this.textBoxText.InvokeRequired)
@@ -93,14 +93,26 @@ namespace projektSK2
             }
             else
             {
-                //text = text.Substring(0, text.Length - 2);
                 this.textBoxText.Text = text;
+            }
+        }
+        
+        // uaktywnia/dezaktywuje przyisk odbioru następnej wiadomości
+        private void setThreadedButtonNext(bool state)
+        {
+            if (this.buttonNext.InvokeRequired)
+            {
+                setThreadedButtonNextCallback buttonNextCallback = new setThreadedButtonNextCallback(setThreadedButtonNext);
+                this.obj.Invoke(buttonNextCallback, state);
+            }
+            else
+            {
+                this.buttonNext.Enabled = state;
             }
         }
 
 
-
-
+        // po wysłaniu prośby do serwera, odbiera wiadomość
         private void SendCallback(IAsyncResult ar)
         {
             try
@@ -112,6 +124,7 @@ namespace projektSK2
                 // Complete sending the data to the remote device.  
                 int bytesSent = socketFd.EndSend(ar);
 
+                state.m_StringBuilder.Clear();
                 socketFd.BeginReceive(state.m_DataBuf, 0, SocketStateObject.BUF_SIZE, 0, new AsyncCallback(ReceiveCallback), state);
             }
             catch (Exception exc)
@@ -121,7 +134,7 @@ namespace projektSK2
             }
         }
 
-
+        // po odebraniu wiadomości, jej składowe zostają wyświetlone w odpowiednich polach formularza
         private void ReceiveCallback(IAsyncResult ar)
         {
             try
@@ -133,27 +146,66 @@ namespace projektSK2
                 /* read data */
                 int size = socketFd.EndReceive(ar);
 
-                state.m_StringBuilder.Append(Encoding.ASCII.GetString(state.m_DataBuf, 0, size));
-
-
-                /* all the data has arrived */
-                if (state.m_StringBuilder.Length > 1)
+                // jeżeli coś odebrano może nastąpić próba dalszego odbioru
+                if (size > 0) 
                 {
-                    string[] message= state.m_StringBuilder.ToString().Split('|');
+                    state.m_StringBuilder.Append(Encoding.ASCII.GetString(state.m_DataBuf, 0, size));
 
-                    if(message[0]!="0")
+                    // jeżeli ostatnim odebranym znakiem jest '~' to kończy odbieranie w przeciwnym przypadku odbiera reszte danych
+                    if (state.m_StringBuilder.ToString().Contains("~")) 
                     {
-                        setThreadedTextToRead(Convert.ToString(Convert.ToInt32(message[0])-1));
-                        setThreadedTextTopic(message[1]);
-                        setThreadedTextTitle(message[3]);
-                        setThreadedTextBoxText(message[4]);
+                          
+                            string[] message = state.m_StringBuilder.ToString().Substring(0, state.m_StringBuilder.ToString().Length - 1).Split('|');
+
+                            if (message[0] != "0")
+                            {
+                                setThreadedTextToRead(Convert.ToString(Convert.ToInt32(message[0]) - 1));
+                                setThreadedTextTopic(message[1]);
+                                setThreadedTextTitle(message[3]);
+                                setThreadedTextBoxText(message[4]);
+
+                                setThreadedButtonNext(true);
+                            }
+                            else 
+                            {
+                                MessageBox.Show("No messages to read");
+
+                                setThreadedButtonNext(true);
+                            }
+    
                     }
-                    else
+                    else // jezeli nie odczytano calej wiadomosci
                     {
-                        MessageBox.Show("No messages to read");
+                        socketFd.BeginReceive(state.m_DataBuf, 0, SocketStateObject.BUF_SIZE, 0, new AsyncCallback(ReceiveCallback), state);
                     }
-       
                 }
+                else
+                {
+                    /* all the data has arrived */
+                    if (state.m_StringBuilder.Length > 1 && state.m_StringBuilder.ToString().Contains("~"))
+                    {
+                        string[] message = state.m_StringBuilder.ToString().Substring(0, state.m_StringBuilder.ToString().Length - 1).Split('|');
+
+                        if (message[0] != "0")
+                        {
+                            setThreadedTextToRead(Convert.ToString(Convert.ToInt32(message[0]) - 1));
+                            setThreadedTextTopic(message[1]);
+                            setThreadedTextTitle(message[3]);
+                            setThreadedTextBoxText(message[4]);
+
+                            setThreadedButtonNext(true);
+                        }
+                        else
+                        {
+                            MessageBox.Show("No messages to read");
+                            setThreadedButtonNext(true);
+                        }
+
+                    }
+                }
+
+
+                
             }
             catch (Exception exc)
             {
@@ -161,14 +213,15 @@ namespace projektSK2
             }
         }
 
+        // wysyła prośbe o kolejną wiadomość do servera
         private void buttonNext_Click(object sender, EventArgs e)
         {
 
             SocketStateObject state = new SocketStateObject();
             state.m_SocketFd = this.socketFd;
-
-            socketFd.BeginSend(Encoding.ASCII.GetBytes("r;"), 0, "r;".Length, 0, new AsyncCallback(SendCallback), state);
-            socketFd.BeginReceive(state.m_DataBuf, 0, SocketStateObject.BUF_SIZE, 0, new AsyncCallback(ReceiveCallback), state);
+            setThreadedButtonNext(false);
+            socketFd.BeginSend(Encoding.ASCII.GetBytes("r|~"), 0, "r|~".Length, 0, new AsyncCallback(SendCallback), state);
+    
 
         }
     }
