@@ -70,11 +70,11 @@
     <Compile Include="FormLogIn.Designer.cs">
       <DependentUpon>FormLogIn.cs</DependentUpon>
     </Compile>
-    <Compile Include="FormRecieve.cs">
+    <Compile Include="FormReceive.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="FormRecieve.Designer.cs">
-      <DependentUpon>FormRecieve.cs</DependentUpon>
+    <Compile Include="FormReceive.Designer.cs">
+      <DependentUpon>FormReceive.cs</DependentUpon>
     </Compile>
     <Compile Include="FormSendMsg.cs">
       <SubType>Form</SubType>
@@ -96,8 +96,8 @@
     <EmbeddedResource Include="FormLogIn.resx">
       <DependentUpon>FormLogIn.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="FormRecieve.resx">
-      <DependentUpon>FormRecieve.cs</DependentUpon>
+    <EmbeddedResource Include="FormReceive.resx">
+      <DependentUpon>FormReceive.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="FormSendMsg.resx">
       <DependentUpon>FormSendMsg.cs</DependentUpon>

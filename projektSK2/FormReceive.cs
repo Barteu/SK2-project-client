@@ -16,7 +16,7 @@ namespace projektSK2
 {
   
     
-    public partial class FormRecieve : Form
+    public partial class FormReceive : Form
     {
         Socket socketFd;
         private Form obj;
@@ -27,7 +27,7 @@ namespace projektSK2
         delegate void setThreadedTextBoxTextCallback(String text);
         delegate void setThreadedButtonNextCallback(bool state);
 
-        public FormRecieve(Socket socketFd)
+        public FormReceive(Socket socketFd)
         {
             InitializeComponent();
             this.obj = this;
@@ -221,8 +221,6 @@ namespace projektSK2
             state.m_SocketFd = this.socketFd;
             setThreadedButtonNext(false);
             socketFd.BeginSend(Encoding.ASCII.GetBytes("r|~"), 0, "r|~".Length, 0, new AsyncCallback(SendCallback), state);
-    
-
         }
     }
 }

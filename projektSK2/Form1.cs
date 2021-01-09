@@ -181,7 +181,7 @@ namespace projektSK2
 
         private void buttonRecieve_Click(object sender, EventArgs e)
         {
-            openChildForm(new FormRecieve(this.socketFd));
+            openChildForm(new FormReceive(this.socketFd));
         }
 
 

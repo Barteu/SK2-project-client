@@ -1,7 +1,7 @@
 ﻿
 namespace projektSK2
 {
-    partial class FormRecieve
+    partial class FormReceive
     {
         /// <summary>
         /// Required designer variable.
