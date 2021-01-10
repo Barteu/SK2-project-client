@@ -63,13 +63,11 @@ namespace projektSK2
             }
             else
             {
-
                 for(int i=0; i<this.checkedListBox1.Items.Count;i++)
                 {
                     if (text.Contains(this.checkedListBox1.Items[i].ToString()))
                     {
                         this.checkedListBox1.SetItemChecked(i, true);
-
                     }
                 }
             }
@@ -430,7 +428,11 @@ namespace projektSK2
             SocketStateObject state = new SocketStateObject();
             state.m_SocketFd = this.socketFd;
 
-            if(this.checkedListBox1.SelectedIndex>=0)
+            if (checkedListBox1.SelectedIndex == -1)
+            {
+                return;
+            }
+            else if (this.checkedListBox1.SelectedIndex >= 0 && this.checkedListBox1.Items.Count>0)
             {
                 string selectedTopic = "s|" + Convert.ToString(this.checkedListBox1.SelectedIndex + 1)+"~";
                 socketFd.BeginSend(Encoding.ASCII.GetBytes(selectedTopic), 0, selectedTopic.Length, 0, new AsyncCallback(SendSubCallback), state);
@@ -451,7 +453,7 @@ namespace projektSK2
                 state.m_SocketFd = this.socketFd;
 
                 string topicToSend = "n|";
-                topicToSend += textBoxTopic.Text.ToString().Replace('|', ' ').Replace('~', ' ');
+                topicToSend += textBoxTopic.Text.ToString().Replace('|', ' ').Replace('~', ' '); 
                 topicToSend += "~";
                 
                 socketFd.BeginSend(Encoding.ASCII.GetBytes(topicToSend), 0, topicToSend.Length, 0, new AsyncCallback(SendTopicCallback), state);

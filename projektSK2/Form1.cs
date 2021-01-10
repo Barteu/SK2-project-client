@@ -18,6 +18,7 @@ namespace projektSK2
         private Form obj;
 
         delegate void setThreadedButtonCallback(Button button, bool state);
+        delegate void setThreadedButtonEnableCallback(Button button, bool state);
 
         Socket socketFd;
 
@@ -46,6 +47,20 @@ namespace projektSK2
             else
             {
                 button.Visible = state;
+            }
+        }
+
+        // ustawia aktywacje danego przycisku
+        private void setThreadedButtonEnable(Button button, bool state)
+        {
+            if (button.InvokeRequired)
+            {
+                setThreadedButtonEnableCallback buttonEnableCallback = new setThreadedButtonEnableCallback(setThreadedButtonEnable);
+                this.obj.Invoke(buttonEnableCallback, new object[] { button }, new object[] { state });
+            }
+            else
+            {
+                button.Enabled = state;
             }
         }
 
@@ -134,6 +149,8 @@ namespace projektSK2
             SocketStateObject state = new SocketStateObject();
             state.m_SocketFd = this.socketFd;
 
+            setThreadedButtonEnable(this.buttonTopcics, true);
+            setThreadedButtonEnable(this.buttonSend, true);
             setThreadedButton(this.buttonLogOut, false);
             setThreadedButton(this.buttonTopcics, false);
             setThreadedButton(this.buttonSend, false);
@@ -175,25 +192,32 @@ namespace projektSK2
 
         private void buttonTopcics_Click(object sender, EventArgs e)
         {
+            setThreadedButtonEnable(this.buttonTopcics, false);
+            setThreadedButtonEnable(this.buttonSend, true);
             openChildForm(new FormTopics(this.socketFd));
 
         }
 
         private void buttonRecieve_Click(object sender, EventArgs e)
         {
+            setThreadedButtonEnable(this.buttonTopcics, true);
+            setThreadedButtonEnable(this.buttonSend, true);
             openChildForm(new FormReceive(this.socketFd));
         }
 
-
+        
         private void Form1_FormClosed(object sender, FormClosedEventArgs e)
         {
                 SocketStateObject state = new SocketStateObject();
                 state.m_SocketFd = this.socketFd;
                 socketFd.BeginSend(Encoding.ASCII.GetBytes("?|~"), 0, "?|~".Length, 0, new AsyncCallback(SendExitCallback), state);
         }
-
+        
+        // przycisk do Tematów
         private void button1_Click(object sender, EventArgs e)
         {
+            setThreadedButtonEnable(this.buttonSend, false);
+            setThreadedButtonEnable(this.buttonTopcics, true);
             openChildForm(new FormSendMsg(this.socketFd));
         }
 
